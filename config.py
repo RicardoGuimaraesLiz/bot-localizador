@@ -1,0 +1,5 @@
+# config.py
+
+SUPABASE_URL = "https://cwfglmjthzcjulxnilgm.supabase.co"  # <<< CORRETO
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3ZmdsbWp0aHpjanVseG5pbGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NDIxOTYsImV4cCI6MjA2NzExODE5Nn0.UPVKu3DwFq8hkHqQN8WXyF7yOw3D8hBPwgsxC11H0RA"
+BOT_TOKEN = "7789469691:AAGpO6R4yuQdw4eYcoZhuasj7q9RnEnZPmQ"

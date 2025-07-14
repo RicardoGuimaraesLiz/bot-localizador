@@ -18,10 +18,8 @@ from dados_dinamicos import (
     obter_pontos_venda,
 )
 
-# Configuração do logger
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+# Logger
+logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 # Estados da conversa
 TELEFONE, FAMILIA, SKU, BAIRRO = range(4)
@@ -39,7 +37,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def receber_telefone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     telefone = update.message.contact.phone_number if update.message.contact else update.message.text.strip()
-
     user = update.effective_user
     context.user_data["cliente_id"] = user.username or str(user.id)
     context.user_data["telefone"] = telefone
@@ -48,7 +45,7 @@ async def receber_telefone(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     context.user_data["data_hora_contato"] = datetime.now(timezone.utc).isoformat()
 
     familias = obter_familias_ativas()
-    reply_keyboard = [familias[i:i+2] for i in range(0, len(familias), 2)]
+    reply_keyboard = [familias[i:i + 2] for i in range(0, len(familias), 2)]
 
     await update.message.reply_text(
         "Por favor, selecione a *família de produtos*:",
@@ -67,7 +64,7 @@ async def escolher_familia(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text("Ops, não encontramos SKUs para essa família. Por favor, escolha outra.")
         return FAMILIA
 
-    reply_keyboard = [skus[i:i+2] for i in range(0, len(skus), 2)]
+    reply_keyboard = [skus[i:i + 2] for i in range(0, len(skus), 2)]
     await update.message.reply_text(
         f"Você escolheu: *{familia}*\nAgora selecione o *SKU*:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
@@ -85,7 +82,7 @@ async def escolher_sku(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         await update.message.reply_text("Ops, não encontramos bairros para esse SKU. Por favor, escolha outro SKU.")
         return SKU
 
-    reply_keyboard = [bairros[i:i+2] for i in range(0, len(bairros), 2)]
+    reply_keyboard = [bairros[i:i + 2] for i in range(0, len(bairros), 2)]
     await update.message.reply_text(
         "📍 Agora selecione o *bairro* onde você está localizado:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
@@ -119,6 +116,7 @@ async def receber_bairro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logging.error(f"Erro ao enviar dados para Supabase: {e}")
         await update.message.reply_text("❌ Ocorreu um erro ao registrar sua interação.")
 
+    # Agendar follow-up
     context.job_queue.run_once(enviar_followup, when=60, data={
         "chat_id": update.effective_chat.id,
         "interacao_id": context.user_data.get("interacao_id"),
@@ -143,22 +141,21 @@ async def enviar_followup(context: ContextTypes.DEFAULT_TYPE):
 async def followup_resposta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     resposta = update.message.text.lower()
     context.user_data["interacao_id"] = context.user_data.get("interacao_id") or "SEM_ID"
-    context.user_data["encontrou_produto"] = True if resposta == "sim" else False
+    context.user_data["encontrou_produto"] = resposta == "sim"
 
     if resposta == "sim":
         keyboard = [[str(i)] for i in range(11)]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text("De 0 a 10, qual nota você dá para o produto?", reply_markup=reply_markup)
         return FOLLOWUP_NOTA
-
     elif resposta in ["não", "nao"]:
         keyboard = [["Produto não encontrado"], ["Preço"], ["Outro"]]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text("Qual foi o motivo?", reply_markup=reply_markup)
         return FOLLOWUP_MOTIVO
-
-    await update.message.reply_text("Resposta inválida. Por favor, responda com Sim ou Não.")
-    return ConversationHandler.END
+    else:
+        await update.message.reply_text("Resposta inválida. Por favor, responda com Sim ou Não.")
+        return ConversationHandler.END
 
 
 async def followup_nota(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -216,7 +213,7 @@ async def main():
     application.add_handler(conv_handler)
     application.add_handler(followup_handler)
 
-    logging.info("🤖 Bot rodando com PTB 20.7...")
+    logging.info("🤖 Bot rodando...")
     await application.run_polling()
 
 

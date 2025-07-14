@@ -1,5 +1,18 @@
-# config.py
+import os
 
-SUPABASE_URL = "https://cwfglmjthzcjulxnilgm.supabase.co"  # <<< CORRETO
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3ZmdsbWp0aHpjanVseG5pbGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NDIxOTYsImV4cCI6MjA2NzExODE5Nn0.UPVKu3DwFq8hkHqQN8WXyF7yOw3D8hBPwgsxC11H0RA"
-BOT_TOKEN = "7789469691:AAGpO6R4yuQdw4eYcoZhuasj7q9RnEnZPmQ"
+# Carrega o token do bot de uma variável de ambiente
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+# Carrega a URL e a chave do Supabase de variáveis de ambiente
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# Opcional: Adicione verificações para garantir que as variáveis foram carregadas
+# Estas mensagens aparecerão nos logs se as variáveis não estiverem definidas
+if not BOT_TOKEN:
+    print("Erro: BOT_TOKEN não configurado como variável de ambiente!")
+if not SUPABASE_URL:
+    print("Erro: SUPABASE_URL não configurado como variável de ambiente!")
+if not SUPABASE_KEY:
+    print("Erro: SUPABASE_KEY não configurado como variável de ambiente!")
+

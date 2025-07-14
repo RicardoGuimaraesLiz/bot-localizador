@@ -18,12 +18,15 @@ from dados_dinamicos import (
     obter_pontos_venda,
 )
 
-# Logger
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+# Configuração do logger
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
-# Estados
+# Estados da conversa
 TELEFONE, FAMILIA, SKU, BAIRRO = range(4)
 FOLLOWUP_NOTA, FOLLOWUP_MOTIVO = range(10, 12)
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     reply_keyboard = [[KeyboardButton("📞 Enviar meu telefone", request_contact=True)]]
@@ -32,6 +35,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return TELEFONE
+
 
 async def receber_telefone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     telefone = update.message.contact.phone_number if update.message.contact else update.message.text.strip()
@@ -53,6 +57,7 @@ async def receber_telefone(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
     return FAMILIA
 
+
 async def escolher_familia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     familia = update.message.text
     context.user_data["familia_produto"] = familia
@@ -70,6 +75,7 @@ async def escolher_familia(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
     return SKU
 
+
 async def escolher_sku(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     sku = update.message.text
     context.user_data["sku"] = sku
@@ -86,6 +92,7 @@ async def escolher_sku(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         parse_mode="Markdown",
     )
     return BAIRRO
+
 
 async def receber_bairro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     bairro = update.message.text
@@ -112,13 +119,13 @@ async def receber_bairro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logging.error(f"Erro ao enviar dados para Supabase: {e}")
         await update.message.reply_text("❌ Ocorreu um erro ao registrar sua interação.")
 
-    # Follow-up (em 1 minuto)
-    context.application.job_queue.run_once(enviar_followup, when=60, data={
+    context.job_queue.run_once(enviar_followup, when=60, data={
         "chat_id": update.effective_chat.id,
         "interacao_id": context.user_data.get("interacao_id"),
     })
 
     return ConversationHandler.END
+
 
 async def enviar_followup(context: ContextTypes.DEFAULT_TYPE):
     job_data = context.job.data
@@ -131,6 +138,7 @@ async def enviar_followup(context: ContextTypes.DEFAULT_TYPE):
         text="Olá! Você encontrou o produto que estava procurando?",
         reply_markup=reply_markup,
     )
+
 
 async def followup_resposta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     resposta = update.message.text.lower()
@@ -152,6 +160,7 @@ async def followup_resposta(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await update.message.reply_text("Resposta inválida. Por favor, responda com Sim ou Não.")
     return ConversationHandler.END
 
+
 async def followup_nota(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     try:
         nota = int(update.message.text)
@@ -165,6 +174,7 @@ async def followup_nota(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await update.message.reply_text("✅ Obrigado pelo seu feedback! Até a próxima.")
     return ConversationHandler.END
 
+
 async def followup_motivo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     motivo = update.message.text
     context.user_data["nota_produto"] = None
@@ -174,41 +184,42 @@ async def followup_motivo(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text("✅ Obrigado pelo seu feedback! Vamos trabalhar para melhorar.")
     return ConversationHandler.END
 
+
 async def cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("❌ Conversa cancelada. Envie /start para começar de novo.")
     return ConversationHandler.END
 
-# MAIN
+
+async def main():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            TELEFONE: [MessageHandler(filters.CONTACT | (filters.TEXT & ~filters.COMMAND), receber_telefone)],
+            FAMILIA: [MessageHandler(filters.TEXT & ~filters.COMMAND, escolher_familia)],
+            SKU: [MessageHandler(filters.TEXT & ~filters.COMMAND, escolher_sku)],
+            BAIRRO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_bairro)],
+        },
+        fallbacks=[CommandHandler("cancel", cancelar)],
+    )
+
+    followup_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^(Sim|sim|Não|não|nao)$"), followup_resposta)],
+        states={
+            FOLLOWUP_NOTA: [MessageHandler(filters.TEXT & ~filters.COMMAND, followup_nota)],
+            FOLLOWUP_MOTIVO: [MessageHandler(filters.TEXT & ~filters.COMMAND, followup_motivo)],
+        },
+        fallbacks=[CommandHandler("cancel", cancelar)],
+    )
+
+    application.add_handler(conv_handler)
+    application.add_handler(followup_handler)
+
+    logging.info("🤖 Bot rodando com PTB 20.7...")
+    await application.run_polling()
+
+
 if __name__ == "__main__":
     import asyncio
-
-    async def main():
-        application = ApplicationBuilder().token(BOT_TOKEN).build()
-
-        conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", start)],
-            states={
-                TELEFONE: [MessageHandler(filters.CONTACT | (filters.TEXT & ~filters.COMMAND), receber_telefone)],
-                FAMILIA: [MessageHandler(filters.TEXT & ~filters.COMMAND, escolher_familia)],
-                SKU: [MessageHandler(filters.TEXT & ~filters.COMMAND, escolher_sku)],
-                BAIRRO: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_bairro)],
-            },
-            fallbacks=[CommandHandler("cancel", cancelar)],
-        )
-
-        followup_handler = ConversationHandler(
-            entry_points=[MessageHandler(filters.Regex("^(Sim|sim|Não|não|nao)$"), followup_resposta)],
-            states={
-                FOLLOWUP_NOTA: [MessageHandler(filters.TEXT & ~filters.COMMAND, followup_nota)],
-                FOLLOWUP_MOTIVO: [MessageHandler(filters.TEXT & ~filters.COMMAND, followup_motivo)],
-            },
-            fallbacks=[CommandHandler("cancel", cancelar)],
-        )
-
-        application.add_handler(conv_handler)
-        application.add_handler(followup_handler)
-
-        logging.info("🤖 Bot rodando...")
-        await application.run_polling()
-
     asyncio.run(main())

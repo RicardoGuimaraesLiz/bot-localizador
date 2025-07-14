@@ -1,6 +1,6 @@
 # Dockerfile
-# Use uma imagem base Python oficial. Python 3.9 é uma boa escolha estável.
-FROM python:3.9-slim-buster
+# Use uma imagem base Python oficial. Python 3.10 é uma boa escolha estável.
+FROM python:3.10-slim-buster
 
 # Define o diretório de trabalho dentro do contêiner.
 # Todos os comandos subsequentes serão executados neste diretório.
@@ -14,12 +14,15 @@ COPY requirements.txt .
 # --no-cache-dir garante que o pip não use caches locais, forçando um download limpo.
 RUN pip cache purge && pip install --no-cache-dir -r requirements.txt
 
+# Adiciona um comando para listar as bibliotecas instaladas (para depuração)
+# Isso aparecerá nos logs de build do Render.
+RUN pip freeze
+
 # Copia todo o restante do código da sua aplicação para o diretório de trabalho.
 # O '.' significa "copiar tudo do diretório atual para o diretório de trabalho do contêiner".
 COPY . .
 
 # Comando para iniciar a aplicação.
-# Adicionamos a flag -u para garantir que os logs sejam exibidos imediatamente,
-# e um sleep antes de rodar o bot para dar tempo de inicialização (debug).
-# O erro ainda aponta para Updater, o que é bizarro. Vamos tentar um CMD mais robusto.
+# O "bash -c" permite executar comandos mais complexos, e "-u" para logs não-bufferizados.
 CMD ["bash", "-c", "python -u bot_localizador.py"]
+

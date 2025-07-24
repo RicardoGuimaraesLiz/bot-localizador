@@ -37,16 +37,29 @@ async def start(update: Update, context: CallbackContext) -> int:
     return TELEFONE
 
 
+import re  # certifique-se de ter isso no topo
+
 async def receber_telefone(update: Update, context: CallbackContext) -> int:
+    # Prioriza o número do botão, se não, usa texto manual
     telefone = update.message.contact.phone_number if update.message.contact else update.message.text.strip()
 
+    # Remove caracteres não numéricos
+    telefone_limpo = re.sub(r'\D', '', telefone)
+
+    # Validação simples: mínimo 9 dígitos
+    if len(telefone_limpo) < 9:
+        await update.message.reply_text("❗ Telefone inválido. Envie no formato 11999999999 ou use o botão.")
+        return TELEFONE
+
+    # Salvar dados no contexto
     user = update.effective_user
     context.user_data["cliente_id"] = user.username or str(user.id)
-    context.user_data["telefone"] = telefone
+    context.user_data["telefone"] = telefone_limpo
     context.user_data["canal"] = "Telegram"
     context.user_data["origem_link"] = "Campanha Bot"
     context.user_data["data_hora_contato"] = datetime.now(timezone.utc).isoformat()
 
+    # Pede a família de produtos
     familias = obter_familias_ativas()
     reply_keyboard = [familias[i:i+2] for i in range(0, len(familias), 2)]
 
@@ -56,6 +69,7 @@ async def receber_telefone(update: Update, context: CallbackContext) -> int:
         parse_mode="Markdown",
     )
     return FAMILIA
+
 
 
 async def escolher_familia(update: Update, context: CallbackContext) -> int:
@@ -188,9 +202,23 @@ async def followup_motivo(update: Update, context: CallbackContext) -> int:
 
 
 async def cancelar(update: Update, context: CallbackContext) -> int:
-    await update.message.reply_text("❌ Conversa cancelada. Envie /start para começar de novo.")
+    await update.message.reply_text(
+        "❌ Conversa cancelada.\n\n"
+        "Se quiser começar de novo, digite /start.\n"
+        "Se tiver dúvidas, digite /ajuda."
+    )
     return ConversationHandler.END
 
+async def ajuda(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text(
+        "👋 *Olá! Eu sou o Bot Localizador de Produtos.*\n\n"
+        "🛒 Te ajudo a encontrar onde comprar produtos por região.\n"
+        "📍 Você seleciona a categoria, o produto e o bairro, e eu te mostro os pontos de venda mais próximos.\n\n"
+        "📊 Depois, pergunto se encontrou o produto e sua opinião — isso ajuda a empresa a melhorar.\n\n"
+        "✅ Use o comando /start para começar.\n"
+        "❌ Use /cancel para parar a qualquer momento.",
+        parse_mode="Markdown"
+    )
 
 def main():
     # Usando Application para rodar o bot
@@ -221,10 +249,15 @@ def main():
     # Adicionando handlers diretamente à application
     application.add_handler(conv_handler)
     application.add_handler(followup_handler)
+    application.add_handler(CommandHandler("ajuda", ajuda))
+
 
     logging.info("🤖 Bot rodando... Pressione Ctrl+C para parar.")
     application.run_polling()
 
 
+from flask_server import keep_alive
+
 if __name__ == "__main__":
+    keep_alive()  # Manter serviço vivo no Render
     main()
